@@ -1,7 +1,3 @@
-# Bronze Level - Weather Alert Bot
-# Fetches weather from OpenWeatherMap
-# Sends email alert if temp > 35°C or rain predicted
-
 import requests
 import smtplib
 import ssl
