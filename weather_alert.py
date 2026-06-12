@@ -4,56 +4,89 @@ import ssl
 import os
 from email.message import EmailMessage
 
-# -- FUNCTION 1: Get Weather --
+# ----------------------------
+# Get Weather Data
+# ----------------------------
 def get_weather():
     api_key = os.environ.get("OPENWEATHER_KEY")
-    city = "Kerala"
-    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    city = "Alappuzha"
+
+    url = (
+        f"https://api.openweathermap.org/data/2.5/weather"
+        f"?q={city}&appid={api_key}&units=metric"
+    )
+
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
+
         data = response.json()
+
         temp = data["main"]["temp"]
+        humidity = data["main"]["humidity"]
         weather = data["weather"][0]["main"]
         description = data["weather"][0]["description"]
-        humidity = data["main"]["humidity"]
-        return temp, weather, description, humidity
+
+        return temp, humidity, weather, description
+
     except Exception as e:
-        print(f"Weather fetch failed: {e}")
+        print("Error:", e)
         return None, None, None, None
 
-# -- FUNCTION 2: Check if Rain Predicted --
-def is_rain_predicted(weather, description):
-    rain_keywords = [
-        "rain", "drizzle", "shower",
-        "thunderstorm", "squall", "tornado"
-    ]
-    weather_lower = weather.lower()
-    desc_lower = description.lower()
 
-    for keyword in rain_keywords:
-        if keyword in weather_lower or keyword in desc_lower:
+# ----------------------------
+# Check Rain Condition
+# ----------------------------
+def is_rain_predicted(weather, description):
+
+    rain_keywords = [
+        "rain",
+        "drizzle",
+        "shower",
+        "thunderstorm"
+    ]
+
+    weather = weather.lower()
+    description = description.lower()
+
+    for word in rain_keywords:
+        if word in weather or word in description:
             return True
+
     return False
 
-# -- FUNCTION 3: Send Email --
-def send_email(temp, weather, description, humidity, reason):
+
+# ----------------------------
+# Send Email
+# ----------------------------
+def send_email(temp, humidity, weather, description, alert=False):
+
     sender = os.environ.get("EMAIL_USER")
     password = os.environ.get("EMAIL_PASS")
 
-    subject = "⚠️ Weather Alert - Pulse Bot"
+    subject = "Daily Weather Update"
+
     body = f"""
-Weather Alert for Kerala!
+Weather Update - Alappuzha
 
-🌡️  Temperature  : {temp}°C
-🌤️  Condition    : {weather}
-📝  Description  : {description}
-💧  Humidity     : {humidity}%
+Temperature : {temp}°C
+Humidity    : {humidity}%
+Condition   : {weather}
+Description : {description}
+"""
 
-⚠️  Alert Reason : {reason}
+    # Alert only when BOTH conditions are true
+    if alert:
+        body += f"""
 
-Stay safe! 🌧️
-    """
+⚠️ WEATHER ALERT ⚠️
+
+High Temperature (>35°C)
+AND
+Rain Expected
+
+Please take precautions.
+"""
 
     msg = EmailMessage()
     msg["From"] = sender
@@ -62,36 +95,43 @@ Stay safe! 🌧️
     msg.set_content(body)
 
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+
+    with smtplib.SMTP_SSL(
+        "smtp.gmail.com",
+        465,
+        context=context
+    ) as server:
+
         server.login(sender, password)
         server.send_message(msg)
-        print("✅ Alert email sent!")
 
-# -- FUNCTION 4: Check and Alert --
-def check_and_alert():
-    temp, weather, description, humidity = get_weather()
+    print("Email sent successfully!")
+
+
+# ----------------------------
+# Main Logic
+# ----------------------------
+def check_weather():
+
+    temp, humidity, weather, description = get_weather()
 
     if temp is None:
-        print("Could not fetch weather.")
+        print("Failed to get weather data.")
         return
 
-    print(f"Temp: {temp}°C | Condition: {weather} | {description}")
-
-    # Check conditions
     rain = is_rain_predicted(weather, description)
-    hot = temp > 35
 
-    if hot and rain:
-        reason = f"Temperature is {temp}°C AND rain predicted ({description})"
-        send_email(temp, weather, description, humidity, reason)
-    elif hot:
-        reason = f"Temperature is too high: {temp}°C"
-        send_email(temp, weather, description, humidity, reason)
-    elif rain:
-        reason = f"Rain predicted: {description}"
-        send_email(temp, weather, description, humidity, reason)
-    else:
-        print("✅ Weather is fine. No alert needed.")
+    # Alert only when BOTH conditions are true
+    alert = temp > 35 and rain
+
+    send_email(
+        temp,
+        humidity,
+        weather,
+        description,
+        alert
+    )
+
 
 if __name__ == "__main__":
-    check_and_alert()
+    check_weather()
