@@ -7,7 +7,7 @@ from email.message import EmailMessage
 # -- FUNCTION 1: Get Weather --
 def get_weather():
     api_key = os.environ.get("OPENWEATHER_KEY")
-    city = "Alappuzha"
+    city = "Cherthala"
     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
     try:
         response = requests.get(url, timeout=10)
@@ -43,7 +43,7 @@ def send_email(temp, weather, description, humidity, reason):
 
     subject = "⚠️ Weather Alert - Pulse Bot"
     body = f"""
-Weather Alert for Alappuzha!
+Weather Alert for Cherthala!
 
 🌡️  Temperature  : {temp}°C
 🌤️  Condition    : {weather}
