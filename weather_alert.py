@@ -4,9 +4,9 @@ import ssl
 import os
 from email.message import EmailMessage
 
-# ----------------------------
-# Get Weather Data
-# ----------------------------
+# ----------------------------------
+# FUNCTION 1: Get Weather Data
+# ----------------------------------
 def get_weather():
     api_key = os.environ.get("OPENWEATHER_KEY")
     city = "Alappuzha"
@@ -27,71 +27,65 @@ def get_weather():
         weather = data["weather"][0]["main"]
         description = data["weather"][0]["description"]
 
-        return temp, humidity, weather, description
+        return temp, weather, description, humidity
 
     except Exception as e:
-        print("Error:", e)
+        print("Weather fetch failed:", e)
         return None, None, None, None
 
 
-# ----------------------------
-# Check Rain Condition
-# ----------------------------
+# ----------------------------------
+# FUNCTION 2: Check Rain Condition
+# ----------------------------------
 def is_rain_predicted(weather, description):
 
     rain_keywords = [
         "rain",
         "drizzle",
         "shower",
-        "thunderstorm"
+        "thunderstorm",
+        "squall",
+        "tornado"
     ]
 
     weather = weather.lower()
     description = description.lower()
 
-    for word in rain_keywords:
-        if word in weather or word in description:
+    for keyword in rain_keywords:
+        if keyword in weather or keyword in description:
             return True
 
     return False
 
 
-# ----------------------------
-# Send Email
-# ----------------------------
-def send_email(temp, humidity, weather, description, alert=False):
+# ----------------------------------
+# FUNCTION 3: Send Email Alert
+# ----------------------------------
+def send_email(temp, weather, description, humidity, reason):
 
     sender = os.environ.get("EMAIL_USER")
     password = os.environ.get("EMAIL_PASS")
 
-    subject = "Daily Weather Update"
-
-    body = f"""
-Weather Update - Alappuzha
-
-Temperature : {temp}°C
-Humidity    : {humidity}%
-Condition   : {weather}
-Description : {description}
-"""
-
-    # Alert only when BOTH conditions are true
-    if alert:
-        body += f"""
-
-⚠️ WEATHER ALERT ⚠️
-
-High Temperature (>35°C)
-AND
-Rain Expected
-
-Please take precautions.
-"""
-
     msg = EmailMessage()
+
+    msg["Subject"] = "⚠️ Weather Alert"
     msg["From"] = sender
     msg["To"] = sender
-    msg["Subject"] = subject
+
+    body = f"""
+Weather Alert for Alappuzha
+
+🌡 Temperature : {temp}°C
+🌤 Condition   : {weather}
+📝 Description : {description}
+💧 Humidity    : {humidity}%
+
+⚠ Alert Reason:
+{reason}
+
+Stay Safe!
+"""
+
     msg.set_content(body)
 
     context = ssl.create_default_context()
@@ -105,33 +99,60 @@ Please take precautions.
         server.login(sender, password)
         server.send_message(msg)
 
-    print("Email sent successfully!")
+    print("✅ Alert email sent successfully!")
 
 
-# ----------------------------
-# Main Logic
-# ----------------------------
-def check_weather():
+# ----------------------------------
+# FUNCTION 4: Check Conditions
+# ----------------------------------
+def check_and_alert():
 
-    temp, humidity, weather, description = get_weather()
+    temp, weather, description, humidity = get_weather()
 
     if temp is None:
-        print("Failed to get weather data.")
+        print("Could not fetch weather data.")
         return
 
-    rain = is_rain_predicted(weather, description)
-
-    # Alert only when BOTH conditions are true
-    alert = temp > 35 and rain
-
-    send_email(
-        temp,
-        humidity,
-        weather,
-        description,
-        alert
+    print(
+        f"Temperature: {temp}°C | "
+        f"Weather: {weather} | "
+        f"{description}"
     )
 
+    hot = temp > 35
+    rain = is_rain_predicted(weather, description)
 
+    # OR CONDITION
+    if hot or rain:
+
+        reasons = []
+
+        if hot:
+            reasons.append(
+                f"High Temperature Detected ({temp}°C)"
+            )
+
+        if rain:
+            reasons.append(
+                f"Rain Predicted ({description})"
+            )
+
+        reason_text = "\n".join(reasons)
+
+        send_email(
+            temp,
+            weather,
+            description,
+            humidity,
+            reason_text
+        )
+
+    else:
+        print("✅ Weather is normal. No alert required.")
+
+
+# ----------------------------------
+# MAIN
+# ----------------------------------
 if __name__ == "__main__":
-    check_weather()
+    check_and_alert()
