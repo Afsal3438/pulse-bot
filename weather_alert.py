@@ -64,7 +64,7 @@ def check_and_alert():
     print(f"Current temp: {temp}°C, Condition: {weather}")
 
     # Check if alert needed
-    if temp > 20 or "rain" in weather.lower() or "rain" in description.lower():
+    if temp > 35 or "rain" in weather.lower() or "rain" in description.lower():
         print("⚠️ Alert condition met! Sending email...")
         send_email(temp, weather, description)
     else:
